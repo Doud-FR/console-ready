@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+
+    </resheader>
+    <resheader name="version">
+        <value>1.3</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=1.0.5000.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=1.0.5000.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+
+    <data name="AuthenticationInfoNote" type="System.String">
+        <value>&lt;b&gt;Remarque :&lt;/b&gt; pour plus d'informations sur l'authentification auprès de votre serveur de messagerie, contactez votre administrateur réseau.</value>
+    </data>
+    <data name="AuthenticationLabel" type="System.String">
+        <value>Authentification :</value>
+    </data>
+    <data name="BasicRadioButtonText" type="System.String">
+        <value>De base</value>
+    </data>
+    <data name="BasicAuthDesc" type="System.String">
+        <value>Sélectionnez cette option si votre serveur de messagerie exige que vous fournissiez explicitement un nom d'utilisateur et un mot de passe lors de l'envoi d'un courrier électronique.</value>
+    </data>
+    <data name="ConfirmationText" type="System.String">
+        <value>Les paramètres SMTP ont été enregistrés.</value>
+    </data>
+    <data name="FromLabel" type="System.String">
+        <value>De :</value>
+    </data>
+    <data name="Instructions" type="System.String">
+        <value>Utilisez cette page pour gérer les paramètres SMTP qui déterminent la manière dont votre application Web envoie le courrier. Si votre serveur de messagerie exige que vous ouvriez une session pour pouvoir envoyer un message électronique, spécifiez le type d'authentification que le serveur requiert et, si nécessaire, le nom d'utilisateur et le mot de passe à utiliser.</value>
+    </data>
+    <data name="NoneRadioButtonText" type="System.String">
+        <value>Aucune</value>
+    </data>
+    <data name="NTLMAuthDesc" type="System.String">
+        <value>Sélectionnez cette option si votre serveur de messagerie se trouve sur un réseau local et que vous vous y connectez à l'aide des informations d'identification Windows.</value>
+    </data>
+    <data name="NTLMRadioButtonText" type="System.String">
+        <value>NTLM (authentification Windows)</value>
+    </data>
+    <data name="SenderUserNameLabel" type="System.String">
+        <value>Nom&amp;nbsp;d'utilisateur&amp;nbsp;de&amp;nbsp;l'expéditeur :</value>
+    </data>
+    <data name="SenderPasswordLabel" type="System.String">
+        <value>Mot&amp;nbsp;de&amp;nbsp;passe&amp;nbsp;de&amp;nbsp;l'expéditeur :</value>
+    </data>
+    <data name="ServerNameLabel" type="System.String">
+        <value>Nom&amp;nbsp;du&amp;nbsp;serveur :</value>
+    </data>
+    <data name="ServerPortLabel" type="System.String">
+        <value>Port&amp;nbsp;du&amp;nbsp;serveur :</value>
+    </data>
+    <data name="Title" type="System.String">
+        <value>Configurer les paramètres SMTP</value>
+    </data>
+    <data name="TitleForSite" type="System.String">
+        <value>Configurer les paramètres SMTP pour le site : </value>
+    </data>
+    <data name="UnexpectedSmtpField" type="System.String">
+        <value>Valeur de configuration inattendue pour le champ smtpauthenticate</value>
+    </data>
+    <data name="NonNegativeServerPort" type="System.String">
+        <value>* Le port du serveur doit être un entier positif </value>
+    </data>
+</root>

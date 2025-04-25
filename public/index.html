@@ -1,0 +1,204 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AppliDeploy Console</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #fff;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 16px;
+      color: #000;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid #ccc;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+      color: #000;
+    }
+    th {
+      background-color: #f0f0f0;
+    }
+    button {
+      padding: 4px 8px;
+      margin-right: 8px;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .update-btn {
+      background-color: #007bff;
+    }
+    .loading, .no-machines {
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    const { createRoot } = ReactDOM;
+
+    const App = () => {
+      const [machines, setMachines] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState(null);
+
+      useEffect(() => {
+        console.log('Début de la requête fetch pour /api/machines');
+        fetch('/api/machines')
+          .then(res => {
+            console.log('Réponse reçue:', res);
+            if (!res.ok) {
+              throw new Error(`Erreur HTTP: ${res.status}`);
+            }
+            return res.json();
+          })
+          .then(data => {
+            console.log('Données reçues:', data);
+            setMachines(Array.isArray(data) ? data : []);
+            setLoading(false);
+          })
+          .catch(err => {
+            console.error('Erreur lors de la récupération des machines:', err);
+            setError(err.message);
+            setMachines([]);
+            setLoading(false);
+          });
+      }, []);
+
+      console.log('Rendu du composant App - loading:', loading, 'machines:', machines, 'error:', error);
+
+      if (error) {
+        return (
+          <div className="container">
+            <h1>Console AppliDeploy</h1>
+            <p style={{ color: 'red' }}>Erreur: {error}</p>
+          </div>
+        );
+      }
+
+      if (loading) {
+        return (
+          <div className="container">
+            <h1>Console AppliDeploy</h1>
+            <p className="loading">Chargement...</p>
+          </div>
+        );
+      }
+
+      return (
+        <div className="container">
+          <h1>Console AppliDeploy</h1>
+          {machines.length === 0 ? (
+            <p className="no-machines">Aucune machine trouvée.</p>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Hostname</th>
+                  <th>IP</th>
+                  <th>OS</th>
+                  <th>RAM (Go)</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {machines.map(machine => (
+                  <tr key={machine.hostname}>
+                    <td>{machine.hostname || 'N/A'}</td>
+                    <td>{machine.ip || 'N/A'}</td>
+                    <td>{machine.os && machine.os.version ? machine.os.version : 'N/A'}</td>
+                    <td>{machine.hardware && machine.hardware.ram ? machine.hardware.ram : 'N/A'}</td>
+                    <td>
+                      <button
+                        className="update-btn"
+                        onClick={() => {
+                          console.log('Déclenchement de l\'action pour', machine.hostname);
+                          fetch('/api/action', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ hostname: machine.hostname, action: 'update_system', force: false })
+                          })
+                            .then(res => res.json())
+                            .then(data => alert(`Action update_system déclenchée pour ${machine.hostname}`))
+                            .catch(err => console.error('Erreur lors du déclenchement de l\'action:', err));
+                        }}
+                      >
+                        Mettre à jour
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      );
+    };
+
+    const root = createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
