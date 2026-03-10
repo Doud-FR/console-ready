@@ -1,0 +1,26 @@
+[Unit]
+Description=AppliDeploy — serveur de gestion de parc informatique
+Documentation=https://github.com/Doud-FR/console-ready
+After=network.target
+
+[Service]
+Type=simple
+User=applideploy
+Group=applideploy
+WorkingDirectory=/opt/applideploy
+EnvironmentFile=-/opt/applideploy/.env
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=applideploy
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/applideploy
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
