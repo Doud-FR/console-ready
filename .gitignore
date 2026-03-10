@@ -5,6 +5,9 @@ node_modules/
 console/dist/
 console/dist-ssr/
 
+# Accidental binary/cache directories (e.g. Windows system files scanned by agent)
+console/o/
+
 # Logs
 *.log
 logs/
