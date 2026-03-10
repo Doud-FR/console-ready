@@ -1,153 +1,291 @@
-✅ Créer une application complète de gestion de parc informatique, déploiement de logiciels et systèmes, équivalente à WAPT
+# AppliDeploy
 
-Développe une application complète client-serveur de gestion de parc informatique, de déploiement logiciel, de déploiement de systèmes d’exploitation et de gestion des mises à jour, avec les mêmes fonctionnalités que WAPT de Tranquil IT, en version open source moderne, ergonomique et modulaire.
+Solution open source de gestion de parc informatique et de déploiement logiciel.
 
-🎯 Objectif principal
+## Sommaire
 
-Créer une solution complète et sécurisée pour l’administration centralisée des postes clients d’un parc informatique (Windows, Linux si possible), incluant une interface serveur (console web ou desktop), un agent client (service Windows et Linux), et un backend scalable.
+- [Architecture](#architecture)
+- [Prérequis](#prérequis)
+- [Installation du serveur](#installation-du-serveur)
+- [Build de la console web](#build-de-la-console-web)
+- [Variables d'environnement](#variables-denvironnement)
+- [Premier démarrage](#premier-démarrage)
+- [Installation de l'agent Windows](#installation-de-lagent-windows)
+- [Configuration de l'agent](#configuration-de-lagent)
+- [Rôles utilisateurs](#rôles-utilisateurs)
+- [Sécurité en production](#sécurité-en-production)
 
-🧱 Architecture technique
+---
 
-Partie Serveur (backend + frontend)
+## Architecture
 
--   Backend API REST/GraphQL en Python (FastAPI ou Django REST) ou Node.js
--   Base de données PostgreSQL
--   Message Broker (optionnel mais recommandé) : RabbitMQ ou Redis Streams pour exécution des tâches
--   Websocket ou polling long pour les communications asynchrones avec les clients
--   Sécurité : HTTPS, Authentification OAuth2 ou JWT, chiffrement des communications client-serveur
--   Frontend (au choix) :
+```
+┌─────────────────────────────────────────┐
+│  Serveur AppliDeploy                    │
+│  ┌──────────────┐  ┌─────────────────┐  │
+│  │  Backend     │  │  Console Web    │  │
+│  │  Node.js /   │  │  React + Vite   │  │
+│  │  Express     │  │  (servi en      │  │
+│  │  (port 3000) │  │   statique)     │  │
+│  └──────────────┘  └─────────────────┘  │
+│         ▲  API REST + JWT               │
+└─────────┼───────────────────────────────┘
+          │  HTTP(S)  X-Agent-Secret
+┌─────────┴───────────────────────────────┐
+│  Postes clients Windows 10/11           │
+│  AppliDeployAgent (service Python)      │
+└─────────────────────────────────────────┘
+```
 
--   Console Web SPA (React.js, Vue.js ou Svelte)
--   Dark Mode, responsive, ergonomique
--   Authentification avec gestion des droits RBAC (admin, tech, readonly...)
+- **Backend** : Node.js / Express — API REST, authentification JWT, stockage JSON
+- **Console web** : React 19 + Vite + Tailwind CSS 4, servie en statique par le backend
+- **Agent** : service Windows Python, interroge le serveur toutes les N secondes
 
-⚙️ Partie Client (agent)
+---
 
-Plateformes supportées
+## Prérequis
 
--   Windows 10/11 (obligatoire)
--   Linux (optionnel dans un second temps)
+### Serveur
 
-Fonctionnement
+| Composant | Version minimale |
+|-----------|-----------------|
+| Node.js   | 18.x LTS        |
+| npm       | 9               |
+| OS        | Linux, macOS ou Windows Server |
 
--   Service système (Windows Service / systemd) nommé AppliDeployAgent
--   Se connecte au backend pour récupérer des commandes à exécuter toutes les X minutes (configurable)
--   Maintient un journal de logs local (rotation de logs)
--   Authentification client/serveur avec certificat ou jeton
+> **Remarque** : Aucune base de données externe n'est requise. Les données sont stockées dans `data.json` à la racine du projet.
 
-🧩 Fonctionnalités à implémenter
+### Agent (postes clients)
 
-1. 🎯 Store logiciel personnalisé
+| Composant  | Version minimale |
+|------------|-----------------|
+| Windows    | 10 / 11 (64 bit) |
+| Python     | 3.10            |
+| pip        | 22              |
 
--   Interface web affichant les logiciels disponibles dans les dépôts
--   Possibilité d’approuver/désapprouver certains paquets par groupe
+---
 
-2. 🧙‍♂️ Assistant de création de paquets
+## Installation du serveur
 
--   Interface graphique permettant d’emballer un installeur (exe/msi) avec des scripts personnalisés (pré-installation, post-installation)
--   Génération automatique d’un paquet .zip ou .wapt contenant :
+### 1. Récupérer les sources
 
--   Script Python/PowerShell
--   Métadonnées (version, licence, vendor)
--   Dépendances
+```bash
+git clone https://github.com/Doud-FR/console-ready.git
+cd console-ready
+```
 
--   Intégration avec une bibliothèque de Setup Helpers
+### 2. Installer les dépendances du backend
 
-3. 📚 Librairie de Setup Helpers
+```bash
+npm install
+```
 
--   Fonctions pré-écrites en Python/PowerShell :
+### 3. Construire la console web
 
--   Installer un MSI en silencieux
--   Ajouter une clé registre
--   Supprimer une app
--   Créer un raccourci
+```bash
+cd console
+npm install
+npm run build   # génère les fichiers statiques dans ../public/
+cd ..
+```
 
--   Documentées dans l’interface admin
+### 4. Configurer les variables d'environnement
 
-4. 🚀 Déploiement de logiciels et configurations
+Créer un fichier `.env` à la racine (ou exporter les variables dans le shell) :
 
--   Déploiement à la demande ou planifié
--   Déploiement par groupes, par OU ou individuellement
--   Suivi d’état (en cours, réussi, échoué)
--   Déploiement de scripts de configuration (registre, politiques, etc.)
+```dotenv
+# Obligatoire en production
+JWT_SECRET=<chaine-aleatoire-longue>
+AGENT_SECRET=<chaine-aleatoire-longue>
 
-5. 🖥️ Inventaire Informatique
+# Optionnel
+PORT=3000
+ADMIN_PASSWORD=<mot-de-passe-initial-admin>
+```
 
--   Récupération automatique des informations :
+> ⚠️ Sans `JWT_SECRET` ni `AGENT_SECRET`, le serveur démarre avec des valeurs par défaut **non sécurisées** et affiche un avertissement. Ne pas utiliser les valeurs par défaut en production.
 
--   Matériel (CPU, RAM, Disque, SN, BIOS)
--   Logiciel (OS, version, Build, apps installées)
--   Réseau (IP, MAC, nom machine, domaine)
+### 5. Démarrer le serveur
 
--   Historique des modifications
--   Export CSV/Excel
+```bash
+npm start
+```
 
-6. 💽 Déploiement de systèmes d'exploitation
+Le serveur écoute sur `http://0.0.0.0:3000` (ou sur le port défini par `PORT`).
 
--   PXE Boot ou ISO personnalisé
--   Intégration avec WDS ou outil de type Clonezilla
--   Script de post-installation auto-déployé via l’agent
+---
 
-7. 🔄 Gestion des mises à jour Windows
+## Variables d'environnement
 
--   Liste des mises à jour installées/en attente
--   Déclenchement manuel d’un scan ou d’un téléchargement
--   Déclenchement de l’installation
--   Reboot différé avec message utilisateur
+| Variable         | Défaut                                  | Description |
+|------------------|-----------------------------------------|-------------|
+| `PORT`           | `3000`                                  | Port d'écoute HTTP |
+| `JWT_SECRET`     | *(valeur insécurisée par défaut)*       | Secret de signature des tokens JWT |
+| `AGENT_SECRET`   | `applideploy-agent-secret`              | Clé partagée entre le serveur et les agents |
+| `ADMIN_PASSWORD` | *(mot de passe aléatoire au démarrage)* | Mot de passe du compte `admin` créé au premier démarrage |
 
-8. 🧩 Utilisation de dépôts secondaires
+---
 
--   Dépôts secondaires en LAN ou distant
--   Priorité de récupération configurables
--   Authentification si nécessaire
+## Premier démarrage
 
-9. 🔐 Gestion des droits d’accès
+Au premier lancement, si aucun utilisateur `admin` n'existe dans `data.json`, le serveur crée automatiquement le compte administrateur :
 
--   Gestion RBAC (Admin, Technicien, Auditeur)
--   Droits par OU, groupe ou scope réseau
+- **Identifiant** : `admin`
+- **Mot de passe** : affiché dans les logs au démarrage (ou valeur de `ADMIN_PASSWORD`)
 
-10. 🔐 Chiffrement des données
+```
+✅ Compte admin créé.
+   Identifiants : admin / <mot-de-passe>
+   ⚠️  Notez ce mot de passe, il ne sera plus affiché.
+```
 
--   Chiffrement des paquets envoyés (AES 256)
--   Stockage chiffré côté serveur des données sensibles
+Ouvrir la console web dans un navigateur : `http://<adresse-serveur>:3000`
 
-11. 📢 Envoi de messages aux utilisateurs
+---
 
--   Envoi d’un message popup au poste client via l’agent
--   Message différé ou conditionnel
--   Support multi-langue
+## Installation de l'agent Windows
 
-12. 🏢 Déploiement par Unités Organisationnelles
+### 1. Prérequis Python
 
--   Intégration LDAP/Active Directory
--   Détection automatique des OU
--   Affectation de paquets à une OU
+Sur le poste client Windows, installer Python 3.10+ depuis [python.org](https://www.python.org/downloads/).
+Cocher **« Add Python to PATH »** lors de l'installation.
 
-13. 📤 Export des données de reporting
+### 2. Installer les dépendances Python
 
--   Tableau de bord personnalisable
--   Export PDF, CSV ou Excel
--   Graphiques de synthèse (nombre d’installations, mises à jour, erreurs, etc.)
+Ouvrir une invite de commande **en tant qu'administrateur** :
 
-14. 🧾 Audit matériel et logiciel
+```powershell
+pip install requests pywin32 wmi psutil
+```
 
--   Scan périodique
--   Détection de logiciels non autorisés
--   Comparaison entre état attendu et état réel
--   Export des écarts
+> `wmi` et `pywin32` sont nécessaires pour la collecte de l'inventaire matériel/logiciel via WMI.
+> Sur une machine hors-Windows (test/dev), l'agent fonctionne en mode dégradé sans ces modules.
 
-🔐 Sécurité attendue
+### 3. Copier l'agent
 
--   Authentification forte (SAML, LDAP, ou 2FA en option)
--   Communication sécurisée via HTTPS + mutual TLS possible
--   Signature numérique des paquets et scripts
--   Possibilité de journalisation centralisée
--   Intégration CrowdSec, fail2ban ou autre solution de blocage IP
+Copier le fichier `agent.py` sur le poste client, par exemple dans :
 
-🛠️ Fonctionnalités avancées
+```
+C:\Program Files\AppliDeployAgent\agent.py
+```
 
--   Planification de maintenance
--   Déploiement sur plusieurs sites géographiques
--   Intégration avec GLPI ou outil ITSM
--   API publique pour intégration tierce
--   Mode "off-line" (cache local sur dépôt secondaire)
+### 4. Créer le fichier de configuration
+
+Créer le dossier de données et le fichier de configuration :
+
+```powershell
+mkdir "$env:ProgramData\AppliDeployAgent"
+```
+
+Créer le fichier `%ProgramData%\AppliDeployAgent\agent.conf` avec le contenu suivant :
+
+```json
+{
+  "server_url": "http://<adresse-serveur>:3000",
+  "agent_secret": "<valeur-de-AGENT_SECRET>",
+  "poll_interval": 300,
+  "hostname_override": null
+}
+```
+
+### 5. Installer le service Windows
+
+Depuis une invite de commande **en tant qu'administrateur**, dans le dossier contenant `agent.py` :
+
+```powershell
+python agent.py install
+python agent.py start
+```
+
+Vérifier que le service est actif :
+
+```powershell
+Get-Service AppliDeployAgent
+```
+
+### 6. Commandes de gestion du service
+
+```powershell
+python agent.py start    # Démarrer le service
+python agent.py stop     # Arrêter le service
+python agent.py restart  # Redémarrer le service
+python agent.py remove   # Désinstaller le service
+```
+
+Pour lancer l'agent en **mode console** (sans service, utile pour le débogage) :
+
+```powershell
+python agent.py
+```
+
+### 7. Journaux
+
+Les journaux de l'agent sont écrits dans :
+
+```
+%ProgramData%\AppliDeployAgent\agent.log
+```
+
+La rotation automatique est configurée à 5 Mo par fichier, avec 3 fichiers de sauvegarde.
+
+---
+
+## Configuration de l'agent
+
+Le fichier `%ProgramData%\AppliDeployAgent\agent.conf` est un JSON avec les paramètres suivants :
+
+| Paramètre           | Défaut                       | Description |
+|---------------------|------------------------------|-------------|
+| `server_url`        | `http://localhost:3000`      | URL du serveur AppliDeploy |
+| `agent_secret`      | `applideploy-agent-secret`   | Doit correspondre à `AGENT_SECRET` côté serveur |
+| `poll_interval`     | `300`                        | Intervalle d'interrogation du serveur en secondes |
+| `hostname_override` | `null`                       | Forcer un nom de machine spécifique (null = auto-détection) |
+
+Exemple complet :
+
+```json
+{
+  "server_url": "https://applideploy.entreprise.fr",
+  "agent_secret": "MonSecretTresLong1234",
+  "poll_interval": 120,
+  "hostname_override": null
+}
+```
+
+Après toute modification du fichier de configuration, redémarrer le service :
+
+```powershell
+python agent.py restart
+```
+
+---
+
+## Rôles utilisateurs
+
+| Rôle       | Droits |
+|------------|--------|
+| `admin`    | Accès complet : gestion des utilisateurs, des paquets, des déploiements et des machines |
+| `tech`     | Peut créer/modifier des paquets et déclencher des déploiements |
+| `readonly` | Consultation uniquement (inventaire, journaux) |
+
+La gestion des comptes se fait depuis la console web → **Paramètres → Utilisateurs**.
+
+---
+
+## Sécurité en production
+
+- Définir des secrets forts pour `JWT_SECRET` et `AGENT_SECRET` (32 caractères aléatoires minimum).
+- Exposer le serveur derrière un reverse-proxy (nginx, Caddy…) avec **HTTPS** (certificat TLS).
+- Restreindre le port 3000 au seul reverse-proxy via le pare-feu.
+- Changer le mot de passe `admin` par défaut dès le premier démarrage.
+- Sur les agents, restreindre les permissions de `agent.conf` au seul compte `SYSTEM` :
+
+```powershell
+$path = "$env:ProgramData\AppliDeployAgent\agent.conf"
+$acl = Get-Acl $path
+$acl.SetAccessRuleProtection($true, $false)
+$rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+    "SYSTEM", "FullControl", "Allow")
+$acl.AddAccessRule($rule)
+Set-Acl $path $acl
+```
