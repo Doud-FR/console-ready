@@ -534,6 +534,17 @@ async function initDataFile() {
         '   Changez ce mot de passe dès votre première connexion.\n'
       );
     }
+  } else if (process.env.ADMIN_PASSWORD) {
+    // If ADMIN_PASSWORD is set and admin user already exists, sync the password hash
+    const adminUser = data.users.find(u => u.username === 'admin');
+    if (adminUser) {
+      const matches = await bcrypt.compare(process.env.ADMIN_PASSWORD, adminUser.password_hash);
+      if (!matches) {
+        adminUser.password_hash = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
+        changed = true;
+        console.log('\n✅ Mot de passe admin mis à jour depuis ADMIN_PASSWORD.\n');
+      }
+    }
   }
   if (changed) await writeData(data);
 }
