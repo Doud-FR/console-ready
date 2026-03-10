@@ -91,7 +91,13 @@ cd ..
 
 ### 4. Configurer les variables d'environnement
 
-Créer un fichier `.env` à la racine (ou exporter les variables dans le shell) :
+Copier le fichier d'exemple et renseigner les valeurs :
+
+```bash
+cp .env.example .env
+```
+
+Éditer `.env` à la racine du projet :
 
 ```dotenv
 # Obligatoire en production
@@ -103,6 +109,8 @@ PORT=3000
 ADMIN_PASSWORD=<mot-de-passe-initial-admin>
 ```
 
+> ✅ Le fichier `.env` est chargé automatiquement au démarrage du serveur.
+>
 > ⚠️ Sans `JWT_SECRET` ni `AGENT_SECRET`, le serveur démarre avec des valeurs par défaut **non sécurisées** et affiche un avertissement. Ne pas utiliser les valeurs par défaut en production.
 
 ### 5. Démarrer le serveur
