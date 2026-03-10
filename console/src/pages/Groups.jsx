@@ -222,6 +222,14 @@ export default function Groups() {
             const isExpanded = expanded[group.name];
             const isActing = actionLoading.endsWith(`-${group.name}`);
             const activeCount = group.machines.filter(h => isActive(getMachineDetails(h)?.last_updated)).length;
+            const noMachinesTitle = 'Aucune machine dans ce groupe';
+            const noPackagesTitle = 'Aucun paquet disponible';
+            // eslint-disable-next-line no-nested-ternary
+            const deployTitle = group.machines.length === 0
+              ? noMachinesTitle
+              : packages.length === 0
+                ? noPackagesTitle
+                : 'Déployer une application sur toutes les machines du groupe';
 
             return (
               <div key={group.name} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
@@ -251,9 +259,9 @@ export default function Groups() {
                     {canAct && (
                       <>
                         <button
-                          disabled={isActing}
+                          disabled={isActing || group.machines.length === 0}
                           onClick={() => handleGroupUpdate(group.name)}
-                          title="Pousser les mises à jour Windows sur toutes les machines du groupe"
+                          title={group.machines.length === 0 ? noMachinesTitle : 'Pousser les mises à jour Windows sur toutes les machines du groupe'}
                           className="flex items-center gap-1.5 text-xs bg-blue-700 hover:bg-blue-600
                             disabled:opacity-60 text-white px-3 py-1.5 rounded-lg transition"
                         >
@@ -261,9 +269,9 @@ export default function Groups() {
                           MàJ groupe
                         </button>
                         <button
-                          disabled={isActing || packages.length === 0}
+                          disabled={isActing || packages.length === 0 || group.machines.length === 0}
                           onClick={() => openDeployModal(group.name)}
-                          title="Déployer une application sur toutes les machines du groupe"
+                          title={deployTitle}
                           className="flex items-center gap-1.5 text-xs bg-purple-700 hover:bg-purple-600
                             disabled:opacity-60 text-white px-3 py-1.5 rounded-lg transition"
                         >
@@ -271,9 +279,9 @@ export default function Groups() {
                           Déployer
                         </button>
                         <button
-                          disabled={isActing}
+                          disabled={isActing || group.machines.length === 0}
                           onClick={() => handleGroupReboot(group.name)}
-                          title="Redémarrer toutes les machines du groupe"
+                          title={group.machines.length === 0 ? noMachinesTitle : 'Redémarrer toutes les machines du groupe'}
                           className="flex items-center gap-1.5 text-xs bg-orange-700 hover:bg-orange-600
                             disabled:opacity-60 text-white px-3 py-1.5 rounded-lg transition"
                         >
