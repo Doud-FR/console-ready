@@ -12,6 +12,7 @@ Solution open source de gestion de parc informatique et de déploiement logiciel
 - [Premier démarrage](#premier-démarrage)
 - [Installation de l'agent Windows](#installation-de-lagent-windows)
 - [Configuration de l'agent](#configuration-de-lagent)
+- [Gestion des groupes](#gestion-des-groupes)
 - [Déploiement d'une application](#déploiement-dune-application)
 - [Rôles utilisateurs](#rôles-utilisateurs)
 - [Sécurité en production](#sécurité-en-production)
@@ -385,13 +386,38 @@ En cas d'échec, cliquer sur la tâche pour afficher la sortie complète de la c
 
 ## Rôles utilisateurs
 
-| Rôle       | Droits |
-|------------|--------|
-| `admin`    | Accès complet : gestion des utilisateurs, des paquets, des déploiements et des machines |
-| `tech`     | Peut créer/modifier des paquets et déclencher des déploiements |
-| `readonly` | Consultation uniquement (inventaire, journaux) |
+| Rôle      | Droits |
+|-----------|--------|
+| `admin`   | Accès complet : gestion des utilisateurs, des groupes (créer, renommer, supprimer), des paquets, des déploiements et des machines |
+| `tech`    | Peut créer des groupes, déplacer des machines entre groupes, modifier des paquets, déclencher des déploiements et des actions sur les machines |
+| `viewer`  | Consultation uniquement (inventaire, groupes, déploiements, journaux) |
 
 La gestion des comptes se fait depuis la console web → **Paramètres → Utilisateurs**.
+
+---
+
+## Gestion des groupes
+
+La fonctionnalité **Groupes** permet d'organiser les machines en ensembles logiques et d'effectuer des actions en masse.
+
+### Accéder aux groupes
+
+Dans la console web, cliquer sur **Groupes** dans la barre de navigation latérale.
+
+### Opérations disponibles
+
+| Action | Rôle requis | Description |
+|--------|-------------|-------------|
+| Voir les groupes | Tous | Afficher la liste des groupes et leurs machines |
+| Créer un groupe | `admin`, `tech` | Ajouter un nouveau groupe |
+| Renommer un groupe | `admin` | Renommer un groupe existant (cascade sur les machines) |
+| Supprimer un groupe | `admin` | Supprimer un groupe (les machines sont déplacées vers `default`) |
+| Déplacer une machine | `admin`, `tech` | Changer le groupe d'une machine |
+| MàJ groupe | `admin`, `tech` | Déclencher `update_windows` sur toutes les machines du groupe |
+| Redémarrer tout | `admin`, `tech` | Planifier un redémarrage de toutes les machines du groupe |
+| Déployer | `admin`, `tech` | Déployer un paquet sur toutes les machines du groupe |
+
+> **Note :** Le groupe `default` ne peut pas être supprimé. Il sert de groupe de secours pour les machines non assignées.
 
 ---
 
