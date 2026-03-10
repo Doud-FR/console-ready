@@ -268,7 +268,7 @@ def execute_action(client, action):
             if install_cmd:
                 _run_command(install_cmd)
             else:
-                log.warning('Aucune commande d\'installation pour le paquet %s', pkg_id)
+                raise ValueError(f'Aucune commande d\'installation pour le paquet {pkg_id}')
 
         elif action_type == 'run_script':
             script = params.get('script', '')

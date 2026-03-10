@@ -331,6 +331,9 @@ app.post('/api/deployments', authenticate, requireRole('admin', 'tech'), async (
     if (!package_id || !targets || !targets.length) {
       return res.status(400).json({ error: 'package_id et targets requis' });
     }
+    const pkg = data.packages.find(p => p.id === package_id);
+    if (!pkg) return res.status(404).json({ error: 'Paquet non trouvé' });
+    if (!pkg.install_cmd) return res.status(400).json({ error: 'Le paquet ne possède pas de commande d\'installation' });
     const deployment = {
       id: Date.now().toString(),
       package_id,
@@ -347,7 +350,7 @@ app.post('/api/deployments', authenticate, requireRole('admin', 'tech'), async (
         id: actionId,
         hostname,
         action: 'install_package',
-        params: { package_id },
+        params: { package_id, install_cmd: pkg.install_cmd },
         deployment_id: deployment.id,
         force: false,
         status: 'pending',
