@@ -214,15 +214,93 @@ app.delete('/api/machines/:hostname', authenticate, requireRole('admin'), async 
 app.get('/api/groups', authenticate, async (req, res) => {
   try {
     const data = await readData();
+    // Build machine list per group from inventory
     const groupMap = {};
     for (const machine of data.inventory) {
       const g = machine.group || 'default';
       if (!groupMap[g]) groupMap[g] = [];
       groupMap[g].push(machine.hostname);
     }
-    const groups = Object.entries(groupMap).map(([name, machines]) => ({ name, machines }));
+    // Merge defined groups (including empty ones) with inventory-derived groups
+    const definedNames = new Set((data.groups || []).map(g => g.name));
+    // Add any legacy groups found in inventory that have no definition yet
+    for (const name of Object.keys(groupMap)) {
+      if (!definedNames.has(name)) definedNames.add(name);
+    }
+    const groups = Array.from(definedNames).map(name => ({
+      name,
+      machines: groupMap[name] || [],
+    }));
     groups.sort((a, b) => a.name.localeCompare(b.name));
     res.json(groups);
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.post('/api/groups', authenticate, requireRole('admin', 'tech'), async (req, res) => {
+  try {
+    const data = await readData();
+    const { name } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Nom du groupe requis' });
+    const trimmed = name.trim();
+    if ((data.groups || []).some(g => g.name === trimmed)) {
+      return res.status(409).json({ error: 'Un groupe avec ce nom existe déjà' });
+    }
+    if (!data.groups) data.groups = [];
+    data.groups.push({ name: trimmed });
+    await writeData(data);
+    res.status(201).json({ name: trimmed, machines: [] });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.put('/api/groups/:group', authenticate, requireRole('admin'), async (req, res) => {
+  try {
+    const data = await readData();
+    const oldName = req.params.group;
+    const { name: newName } = req.body;
+    if (!newName || !newName.trim()) return res.status(400).json({ error: 'Nom du groupe requis' });
+    const trimmed = newName.trim();
+    if (!data.groups) data.groups = [];
+    const existing = data.groups.find(g => g.name === oldName);
+    if (!existing) return res.status(404).json({ error: 'Groupe non trouvé' });
+    if (trimmed !== oldName && data.groups.some(g => g.name === trimmed)) {
+      return res.status(409).json({ error: 'Un groupe avec ce nom existe déjà' });
+    }
+    existing.name = trimmed;
+    // Cascade rename to all machines in this group
+    for (const machine of data.inventory) {
+      if ((machine.group || 'default') === oldName) machine.group = trimmed;
+    }
+    await writeData(data);
+    const machines = data.inventory.filter(m => (m.group || 'default') === trimmed).map(m => m.hostname);
+    res.json({ name: trimmed, machines });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.delete('/api/groups/:group', authenticate, requireRole('admin'), async (req, res) => {
+  try {
+    const data = await readData();
+    const groupName = req.params.group;
+    if (groupName === 'default') return res.status(400).json({ error: 'Le groupe "default" ne peut pas être supprimé' });
+    if (!data.groups) data.groups = [];
+    const idx = data.groups.findIndex(g => g.name === groupName);
+    if (idx === -1) return res.status(404).json({ error: 'Groupe non trouvé' });
+    data.groups.splice(idx, 1);
+    // Move machines from this group to 'default'
+    for (const machine of data.inventory) {
+      if ((machine.group || 'default') === groupName) machine.group = 'default';
+    }
+    // Ensure 'default' group exists in the groups list
+    if (!data.groups.some(g => g.name === 'default')) {
+      data.groups.unshift({ name: 'default' });
+    }
+    await writeData(data);
+    res.json({ message: 'Groupe supprimé' });
   } catch (err) {
     res.status(500).json({ error: 'Erreur serveur' });
   }
@@ -576,6 +654,7 @@ async function initDataFile() {
   if (!data.packages) { data.packages = []; changed = true; }
   if (!data.deployments) { data.deployments = []; changed = true; }
   if (!data.errors) { data.errors = []; changed = true; }
+  if (!data.groups) { data.groups = [{ name: 'default' }]; changed = true; }
 
   if (data.users.length === 0) {
     // Generate a random secure initial password if ADMIN_PASSWORD is not set

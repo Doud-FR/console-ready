@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   RefreshCw, Layers, Monitor, ChevronRight,
   RotateCcw, Download, Rocket, X, Check,
+  Plus, Pencil, Trash2, MoveRight,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
@@ -24,6 +25,15 @@ export default function Groups() {
   const [selectedPackage, setSelectedPackage] = useState('');
   const [expanded, setExpanded] = useState({});
   const [toast, setToast] = useState(null);
+
+  // Modals
+  const [createModal, setCreateModal] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [editModal, setEditModal] = useState(null); // { group }
+  const [editGroupName, setEditGroupName] = useState('');
+  const [deleteModal, setDeleteModal] = useState(null); // { group }
+  const [moveModal, setMoveModal] = useState(null); // { hostname, currentGroup }
+  const [moveTarget, setMoveTarget] = useState('');
 
   const showToast = (msg, ok = true) => {
     setToast({ msg, ok });
@@ -96,7 +106,72 @@ export default function Groups() {
     }
   };
 
+  // Create group
+  const handleCreateGroup = async () => {
+    if (!newGroupName.trim()) return;
+    try {
+      await api.createGroup(newGroupName.trim());
+      showToast(`Groupe "${newGroupName.trim()}" créé`);
+      setCreateModal(false);
+      setNewGroupName('');
+      load();
+    } catch (err) {
+      showToast(err.message, false);
+    }
+  };
+
+  // Edit (rename) group
+  const openEditModal = (group) => {
+    setEditModal({ group: group.name });
+    setEditGroupName(group.name);
+  };
+
+  const handleEditGroup = async () => {
+    if (!editGroupName.trim() || !editModal) return;
+    try {
+      await api.updateGroup(editModal.group, editGroupName.trim());
+      showToast(`Groupe renommé en "${editGroupName.trim()}"`);
+      setEditModal(null);
+      load();
+    } catch (err) {
+      showToast(err.message, false);
+    }
+  };
+
+  // Delete group
+  const handleDeleteGroup = async () => {
+    if (!deleteModal) return;
+    try {
+      await api.deleteGroup(deleteModal.group);
+      showToast(`Groupe "${deleteModal.group}" supprimé`);
+      setDeleteModal(null);
+      load();
+    } catch (err) {
+      showToast(err.message, false);
+    }
+  };
+
+  // Move machine to another group
+  const openMoveModal = (hostname, currentGroup) => {
+    setMoveModal({ hostname, currentGroup });
+    const first = groups.find(g => g.name !== currentGroup);
+    setMoveTarget(first?.name || '');
+  };
+
+  const handleMoveMachine = async () => {
+    if (!moveModal || !moveTarget) return;
+    try {
+      await api.updateMachine(moveModal.hostname, { group: moveTarget });
+      showToast(`Machine "${moveModal.hostname}" déplacée vers "${moveTarget}"`);
+      setMoveModal(null);
+      load();
+    } catch (err) {
+      showToast(err.message, false);
+    }
+  };
+
   const canAct = ['admin', 'tech'].includes(user?.role);
+  const isAdmin = user?.role === 'admin';
 
   return (
     <div className="space-y-6">
@@ -109,14 +184,26 @@ export default function Groups() {
             {machines.length} machine{machines.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <button
-          onClick={load}
-          className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700
-            px-4 py-2 rounded-lg transition"
-        >
-          <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-          Actualiser
-        </button>
+        <div className="flex items-center gap-2">
+          {canAct && (
+            <button
+              onClick={() => { setCreateModal(true); setNewGroupName(''); }}
+              className="flex items-center gap-2 text-sm text-white bg-blue-700 hover:bg-blue-600
+                px-4 py-2 rounded-lg transition"
+            >
+              <Plus size={15} />
+              Nouveau groupe
+            </button>
+          )}
+          <button
+            onClick={load}
+            className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700
+              px-4 py-2 rounded-lg transition"
+          >
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+            Actualiser
+          </button>
+        </div>
       </div>
 
       {/* Groups list */}
@@ -160,104 +247,333 @@ export default function Groups() {
                     />
                   </button>
 
-                  {canAct && (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <button
-                        disabled={isActing}
-                        onClick={() => handleGroupUpdate(group.name)}
-                        title="Pousser les mises à jour Windows sur toutes les machines du groupe"
-                        className="flex items-center gap-1.5 text-xs bg-blue-700 hover:bg-blue-600
-                          disabled:opacity-60 text-white px-3 py-1.5 rounded-lg transition"
-                      >
-                        <Download size={13} />
-                        MàJ groupe
-                      </button>
-                      <button
-                        disabled={isActing || packages.length === 0}
-                        onClick={() => openDeployModal(group.name)}
-                        title="Déployer une application sur toutes les machines du groupe"
-                        className="flex items-center gap-1.5 text-xs bg-purple-700 hover:bg-purple-600
-                          disabled:opacity-60 text-white px-3 py-1.5 rounded-lg transition"
-                      >
-                        <Rocket size={13} />
-                        Déployer
-                      </button>
-                      <button
-                        disabled={isActing}
-                        onClick={() => handleGroupReboot(group.name)}
-                        title="Redémarrer toutes les machines du groupe"
-                        className="flex items-center gap-1.5 text-xs bg-orange-700 hover:bg-orange-600
-                          disabled:opacity-60 text-white px-3 py-1.5 rounded-lg transition"
-                      >
-                        <RotateCcw size={13} className={isActing ? 'animate-spin' : ''} />
-                        Redémarrer tout
-                      </button>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {canAct && (
+                      <>
+                        <button
+                          disabled={isActing}
+                          onClick={() => handleGroupUpdate(group.name)}
+                          title="Pousser les mises à jour Windows sur toutes les machines du groupe"
+                          className="flex items-center gap-1.5 text-xs bg-blue-700 hover:bg-blue-600
+                            disabled:opacity-60 text-white px-3 py-1.5 rounded-lg transition"
+                        >
+                          <Download size={13} />
+                          MàJ groupe
+                        </button>
+                        <button
+                          disabled={isActing || packages.length === 0}
+                          onClick={() => openDeployModal(group.name)}
+                          title="Déployer une application sur toutes les machines du groupe"
+                          className="flex items-center gap-1.5 text-xs bg-purple-700 hover:bg-purple-600
+                            disabled:opacity-60 text-white px-3 py-1.5 rounded-lg transition"
+                        >
+                          <Rocket size={13} />
+                          Déployer
+                        </button>
+                        <button
+                          disabled={isActing}
+                          onClick={() => handleGroupReboot(group.name)}
+                          title="Redémarrer toutes les machines du groupe"
+                          className="flex items-center gap-1.5 text-xs bg-orange-700 hover:bg-orange-600
+                            disabled:opacity-60 text-white px-3 py-1.5 rounded-lg transition"
+                        >
+                          <RotateCcw size={13} className={isActing ? 'animate-spin' : ''} />
+                          Redémarrer tout
+                        </button>
+                      </>
+                    )}
+                    {isAdmin && (
+                      <>
+                        <button
+                          onClick={() => openEditModal(group)}
+                          title="Renommer ce groupe"
+                          className="flex items-center gap-1.5 text-xs bg-zinc-700 hover:bg-zinc-600
+                            text-white px-3 py-1.5 rounded-lg transition"
+                        >
+                          <Pencil size={13} />
+                          Renommer
+                        </button>
+                        {group.name !== 'default' && (
+                          <button
+                            onClick={() => setDeleteModal({ group: group.name })}
+                            title="Supprimer ce groupe"
+                            className="flex items-center gap-1.5 text-xs bg-red-800 hover:bg-red-700
+                              text-white px-3 py-1.5 rounded-lg transition"
+                          >
+                            <Trash2 size={13} />
+                            Supprimer
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {/* Machine list (expanded) */}
                 {isExpanded && (
                   <div className="border-t border-zinc-800">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-zinc-800 text-zinc-400 text-left">
-                            <th className="px-4 py-2.5 font-medium">Statut</th>
-                            <th className="px-4 py-2.5 font-medium">Hostname</th>
-                            <th className="px-4 py-2.5 font-medium">IP</th>
-                            <th className="px-4 py-2.5 font-medium">OS</th>
-                            <th className="px-4 py-2.5 font-medium">RAM</th>
-                            <th className="px-4 py-2.5 font-medium">Dernière mise à jour</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-zinc-800">
-                          {group.machines.map(hostname => {
-                            const m = getMachineDetails(hostname);
-                            if (!m) return (
-                              <tr key={hostname}>
-                                <td colSpan={6} className="px-4 py-2.5 text-zinc-500">{hostname}</td>
-                              </tr>
-                            );
-                            return (
-                              <tr
-                                key={hostname}
-                                className="hover:bg-zinc-800/50 cursor-pointer transition-colors"
-                                onClick={() => navigate(`/inventory/${encodeURIComponent(hostname)}`)}
-                              >
-                                <td className="px-4 py-2.5">
-                                  <span
-                                    className={`inline-block w-2 h-2 rounded-full ${
-                                      isActive(m.last_updated) ? 'bg-green-400' : 'bg-zinc-600'
-                                    }`}
-                                  />
-                                </td>
-                                <td className="px-4 py-2.5 font-medium text-white">{m.hostname}</td>
-                                <td className="px-4 py-2.5 text-zinc-300">{m.ip || '—'}</td>
-                                <td className="px-4 py-2.5 text-zinc-300">
-                                  {m.os?.name
-                                    ? `${m.os.name} ${m.os.version || ''}`
-                                    : typeof m.os === 'string' ? m.os : '—'}
-                                </td>
-                                <td className="px-4 py-2.5 text-zinc-300">
-                                  {m.hardware?.ram ? `${m.hardware.ram} Go` : '—'}
-                                </td>
-                                <td className="px-4 py-2.5 text-zinc-500 text-xs">
-                                  {m.last_updated
-                                    ? new Date(m.last_updated).toLocaleString('fr-FR')
-                                    : '—'}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                    {group.machines.length === 0 ? (
+                      <p className="px-5 py-4 text-zinc-500 text-sm">Aucune machine dans ce groupe.</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-zinc-800 text-zinc-400 text-left">
+                              <th className="px-4 py-2.5 font-medium">Statut</th>
+                              <th className="px-4 py-2.5 font-medium">Hostname</th>
+                              <th className="px-4 py-2.5 font-medium">IP</th>
+                              <th className="px-4 py-2.5 font-medium">OS</th>
+                              <th className="px-4 py-2.5 font-medium">RAM</th>
+                              <th className="px-4 py-2.5 font-medium">Dernière mise à jour</th>
+                              {canAct && groups.length > 1 && (
+                                <th className="px-4 py-2.5 font-medium">Déplacer</th>
+                              )}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-800">
+                            {group.machines.map(hostname => {
+                              const m = getMachineDetails(hostname);
+                              if (!m) return (
+                                <tr key={hostname}>
+                                  <td colSpan={canAct && groups.length > 1 ? 7 : 6} className="px-4 py-2.5 text-zinc-500">{hostname}</td>
+                                </tr>
+                              );
+                              return (
+                                <tr key={hostname} className="hover:bg-zinc-800/50 transition-colors">
+                                  <td
+                                    className="px-4 py-2.5 cursor-pointer"
+                                    onClick={() => navigate(`/inventory/${encodeURIComponent(hostname)}`)}
+                                  >
+                                    <span
+                                      className={`inline-block w-2 h-2 rounded-full ${
+                                        isActive(m.last_updated) ? 'bg-green-400' : 'bg-zinc-600'
+                                      }`}
+                                    />
+                                  </td>
+                                  <td
+                                    className="px-4 py-2.5 font-medium text-white cursor-pointer"
+                                    onClick={() => navigate(`/inventory/${encodeURIComponent(hostname)}`)}
+                                  >
+                                    {m.hostname}
+                                  </td>
+                                  <td
+                                    className="px-4 py-2.5 text-zinc-300 cursor-pointer"
+                                    onClick={() => navigate(`/inventory/${encodeURIComponent(hostname)}`)}
+                                  >
+                                    {m.ip || '—'}
+                                  </td>
+                                  <td
+                                    className="px-4 py-2.5 text-zinc-300 cursor-pointer"
+                                    onClick={() => navigate(`/inventory/${encodeURIComponent(hostname)}`)}
+                                  >
+                                    {m.os?.name
+                                      ? `${m.os.name} ${m.os.version || ''}`
+                                      : typeof m.os === 'string' ? m.os : '—'}
+                                  </td>
+                                  <td
+                                    className="px-4 py-2.5 text-zinc-300 cursor-pointer"
+                                    onClick={() => navigate(`/inventory/${encodeURIComponent(hostname)}`)}
+                                  >
+                                    {m.hardware?.ram ? `${m.hardware.ram} Go` : '—'}
+                                  </td>
+                                  <td
+                                    className="px-4 py-2.5 text-zinc-500 text-xs cursor-pointer"
+                                    onClick={() => navigate(`/inventory/${encodeURIComponent(hostname)}`)}
+                                  >
+                                    {m.last_updated
+                                      ? new Date(m.last_updated).toLocaleString('fr-FR')
+                                      : '—'}
+                                  </td>
+                                  {canAct && groups.length > 1 && (
+                                    <td className="px-4 py-2.5">
+                                      <button
+                                        onClick={() => openMoveModal(hostname, group.name)}
+                                        title="Déplacer vers un autre groupe"
+                                        className="flex items-center gap-1 text-xs text-zinc-400 hover:text-white
+                                          bg-zinc-800 hover:bg-zinc-700 px-2 py-1 rounded-lg transition"
+                                      >
+                                        <MoveRight size={12} />
+                                        Déplacer
+                                      </button>
+                                    </td>
+                                  )}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Create group modal */}
+      {createModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Créer un groupe</h3>
+              <button onClick={() => setCreateModal(false)} className="text-zinc-500 hover:text-white transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            <label className="block text-sm text-zinc-400 mb-1">Nom du groupe</label>
+            <input
+              type="text"
+              value={newGroupName}
+              onChange={e => setNewGroupName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleCreateGroup()}
+              placeholder="ex: Serveurs, Bureau, Production…"
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white
+                focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5 placeholder-zinc-500"
+              autoFocus
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setCreateModal(false)}
+                className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white py-2 rounded-lg transition text-sm"
+              >
+                Annuler
+              </button>
+              <button
+                disabled={!newGroupName.trim()}
+                onClick={handleCreateGroup}
+                className="flex-1 bg-blue-700 hover:bg-blue-600 disabled:opacity-60 text-white py-2
+                  rounded-lg transition text-sm flex items-center justify-center gap-2"
+              >
+                <Plus size={14} />
+                Créer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit (rename) group modal */}
+      {editModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Renommer le groupe</h3>
+              <button onClick={() => setEditModal(null)} className="text-zinc-500 hover:text-white transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            <label className="block text-sm text-zinc-400 mb-1">Nouveau nom</label>
+            <input
+              type="text"
+              value={editGroupName}
+              onChange={e => setEditGroupName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleEditGroup()}
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white
+                focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
+              autoFocus
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setEditModal(null)}
+                className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white py-2 rounded-lg transition text-sm"
+              >
+                Annuler
+              </button>
+              <button
+                disabled={!editGroupName.trim()}
+                onClick={handleEditGroup}
+                className="flex-1 bg-blue-700 hover:bg-blue-600 disabled:opacity-60 text-white py-2
+                  rounded-lg transition text-sm flex items-center justify-center gap-2"
+              >
+                <Check size={14} />
+                Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete group modal */}
+      {deleteModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Supprimer le groupe</h3>
+              <button onClick={() => setDeleteModal(null)} className="text-zinc-500 hover:text-white transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-zinc-400 text-sm mb-5">
+              Supprimer le groupe <strong className="text-white">"{deleteModal.group}"</strong> ?
+              Les machines qu'il contient seront déplacées dans le groupe{' '}
+              <strong className="text-white">default</strong>.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteModal(null)}
+                className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white py-2 rounded-lg transition text-sm"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleDeleteGroup}
+                className="flex-1 bg-red-700 hover:bg-red-600 text-white py-2
+                  rounded-lg transition text-sm flex items-center justify-center gap-2"
+              >
+                <Trash2 size={14} />
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Move machine modal */}
+      {moveModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Déplacer la machine</h3>
+              <button onClick={() => setMoveModal(null)} className="text-zinc-500 hover:text-white transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-zinc-400 text-sm mb-4">
+              Machine : <strong className="text-white">{moveModal.hostname}</strong>
+            </p>
+            <label className="block text-sm text-zinc-400 mb-1">Groupe de destination</label>
+            <select
+              value={moveTarget}
+              onChange={e => setMoveTarget(e.target.value)}
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white
+                focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5"
+            >
+              {groups
+                .filter(g => g.name !== moveModal.currentGroup)
+                .map(g => (
+                  <option key={g.name} value={g.name}>{g.name}</option>
+                ))}
+            </select>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setMoveModal(null)}
+                className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white py-2 rounded-lg transition text-sm"
+              >
+                Annuler
+              </button>
+              <button
+                disabled={!moveTarget}
+                onClick={handleMoveMachine}
+                className="flex-1 bg-blue-700 hover:bg-blue-600 disabled:opacity-60 text-white py-2
+                  rounded-lg transition text-sm flex items-center justify-center gap-2"
+              >
+                <MoveRight size={14} />
+                Déplacer
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

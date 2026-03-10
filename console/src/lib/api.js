@@ -51,6 +51,9 @@ export const api = {
 
   // Groups
   getGroups: () => request('GET', '/api/groups'),
+  createGroup: (name) => request('POST', '/api/groups', { name }),
+  updateGroup: (oldName, newName) => request('PUT', `/api/groups/${encodeURIComponent(oldName)}`, { name: newName }),
+  deleteGroup: (name) => request('DELETE', `/api/groups/${encodeURIComponent(name)}`),
   triggerGroupAction: (group, action, force = false, params = {}) =>
     request('POST', `/api/groups/${encodeURIComponent(group)}/action`, { action, force, params }),
 

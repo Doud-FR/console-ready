@@ -63,7 +63,8 @@
         "ram": true,
         "compatible": true
       },
-      "last_updated": "2025-04-25T17:01:41.217Z"
+      "last_updated": "2025-04-25T17:01:41.217Z",
+      "group": "default"
     },
     {
       "hostname": "PC-PROD-01",
@@ -156,5 +157,13 @@
     }
   ],
   "packages": [],
-  "deployments": []
+  "deployments": [],
+  "groups": [
+    {
+      "name": "default"
+    },
+    {
+      "name": "Serveurs"
+    }
+  ]
 }
