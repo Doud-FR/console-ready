@@ -12,6 +12,7 @@ Solution open source de gestion de parc informatique et de déploiement logiciel
 - [Premier démarrage](#premier-démarrage)
 - [Installation de l'agent Windows](#installation-de-lagent-windows)
 - [Configuration de l'agent](#configuration-de-lagent)
+- [Déploiement d'une application](#déploiement-dune-application)
 - [Rôles utilisateurs](#rôles-utilisateurs)
 - [Sécurité en production](#sécurité-en-production)
 
@@ -265,6 +266,120 @@ Après toute modification du fichier de configuration, redémarrer le service :
 ```powershell
 python agent.py restart
 ```
+
+---
+
+## Déploiement d'une application
+
+Cette section explique comment créer un **paquet de déploiement** dans la console AppliDeploy et le pousser vers les postes clients. L'exemple complet utilise **7-Zip** (installeur `.exe` en mode silencieux).
+
+### Vue d'ensemble du processus
+
+```
+Console Web            Serveur              Agent Windows
+     │                    │                      │
+     │  Créer un paquet   │                      │
+     │ ──────────────────>│                      │
+     │                    │  Commande en attente  │
+     │  Assigner machines │ ─────────────────────>│
+     │ ──────────────────>│                      │
+     │                    │  Exécution commande   │
+     │                    │ <─────────────────────│
+     │   Résultat (log)   │                      │
+     │ <──────────────────│                      │
+```
+
+### Étape 1 — Créer le paquet dans la console
+
+Dans la console web, aller dans **Paquets → Nouveau paquet**.
+
+Le formulaire de création comporte les champs suivants :
+
+| Champ | Description |
+|-------|-------------|
+| **Nom** *(obligatoire)* | Nom affiché dans la console |
+| **Version** | Version du logiciel |
+| **Éditeur** | Nom de l'éditeur / fabricant |
+| **Type** | Type d'installeur : `exe`, `msi`, `script`, `zip`, `other` |
+| **Description** | Description libre du paquet |
+| **Commande d'installation** | Commande exécutée sur les postes pour installer le logiciel |
+| **Commande de désinstallation** | Commande exécutée pour désinstaller le logiciel |
+
+> ⚠️ Les commandes d'installation et de désinstallation sont exécutées **avec les droits du service Windows** (`SYSTEM` par défaut). L'installeur doit être accessible depuis le poste client (partage réseau, chemin UNC, etc.).
+
+---
+
+### Exemple complet : 7-Zip
+
+7-Zip est un archiveur open source dont l'installeur `.exe` accepte le commutateur `/S` pour une installation **silencieuse** (sans interface graphique ni confirmation utilisateur).
+
+#### Champs à remplir
+
+| Champ | Valeur à saisir |
+|-------|----------------|
+| **Nom** | `7-Zip` |
+| **Version** | `24.09` *(adapter à la version téléchargée)* |
+| **Éditeur** | `Igor Pavlov` |
+| **Type** | `exe` |
+| **Description** | `Archiveur de fichiers open source 7-Zip` |
+| **Commande d'installation** | *(voir ci-dessous)* |
+| **Commande de désinstallation** | *(voir ci-dessous)* |
+
+#### Commande d'installation
+
+Copier l'installeur `7z2409-x64.exe` sur un partage réseau accessible depuis tous les postes, puis saisir dans le champ **Commande d'installation** :
+
+```
+\\serveur\partage\7z2409-x64.exe /S
+```
+
+> **Le commutateur `/S` est sensible à la casse** : il doit être en majuscule. Il déclenche l'installation silencieuse sans aucune fenêtre ni interaction utilisateur.
+>
+> Par défaut, 7-Zip s'installe dans `C:\Program Files\7-Zip\`.
+> Pour choisir un dossier d'installation différent, ajouter l'option `/D` **en dernier** :
+>
+> ```
+> \\serveur\partage\7z2409-x64.exe /S /D=C:\Outils\7-Zip
+> ```
+
+#### Commande de désinstallation
+
+L'installeur de 7-Zip dépose un exécutant de désinstallation dans son répertoire. Saisir dans le champ **Commande de désinstallation** :
+
+```
+"C:\Program Files\7-Zip\Uninstall.exe" /S
+```
+
+> Les guillemets sont nécessaires car le chemin contient des espaces.
+> Le commutateur `/S` active là aussi le mode silencieux.
+>
+> Si vous avez installé 7-Zip dans un répertoire personnalisé via `/D`, adaptez le chemin en conséquence.
+
+---
+
+### Étape 2 — Assigner le paquet aux machines
+
+Une fois le paquet créé :
+
+1. Aller dans **Déploiements → Nouveau déploiement** (ou cliquer sur le paquet puis **Déployer**).
+2. Sélectionner le ou les postes cibles dans la liste des machines enregistrées.
+3. Choisir l'action **Installer** ou **Désinstaller**.
+4. Valider — le déploiement passe à l'état **En attente**.
+
+L'agent sur chaque poste récupère la commande lors de sa prochaine vérification (selon `poll_interval`), l'exécute et remonte le résultat (code de retour, sortie console) dans les journaux de déploiement.
+
+### Étape 3 — Vérifier le résultat
+
+Dans la console web, aller dans **Déploiements** et consulter le statut de chaque tâche :
+
+| Statut | Signification |
+|--------|---------------|
+| `pending` | En attente de récupération par l'agent |
+| `running` | En cours d'exécution sur le poste |
+| `success` | Commande terminée avec le code de retour `0` |
+| `failed` | Commande terminée avec un code de retour non nul |
+
+En cas d'échec, cliquer sur la tâche pour afficher la sortie complète de la commande et identifier l'erreur.
 
 ---
 
