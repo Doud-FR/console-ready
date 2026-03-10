@@ -249,11 +249,14 @@ def execute_action(client, action):
     try:
         if action_type == 'update_windows':
             _run_powershell(
-                'if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) { '
-                'try { Install-Module -Name PSWindowsUpdate -Force -Confirm:$false -Scope AllUsers } '
-                'catch { Install-Module -Name PSWindowsUpdate -Force -Confirm:$false -Scope CurrentUser } '
+                '[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; '
+                'if (-not (Get-PackageProvider -Name NuGet -ListAvailable -ErrorAction SilentlyContinue)) { '
+                '    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false '
                 '} '
-                'Import-Module PSWindowsUpdate; '
+                'if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) { '
+                '    Install-Module -Name PSWindowsUpdate -Force -Confirm:$false -Scope AllUsers '
+                '} '
+                'Import-Module PSWindowsUpdate -Force; '
                 'Install-WindowsUpdate -AcceptAll -AutoReboot -IgnoreReboot'
             )
 
