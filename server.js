@@ -185,12 +185,72 @@ app.post('/api/inventory', authenticate, async (req, res) => {
   }
 });
 
+app.patch('/api/machines/:hostname', authenticate, requireRole('admin', 'tech'), async (req, res) => {
+  try {
+    const data = await readData();
+    const machine = data.inventory.find(m => m.hostname === req.params.hostname);
+    if (!machine) return res.status(404).json({ error: 'Machine non trouvée' });
+    const { group } = req.body;
+    if (group !== undefined) machine.group = group || 'default';
+    await writeData(data);
+    res.json(machine);
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 app.delete('/api/machines/:hostname', authenticate, requireRole('admin'), async (req, res) => {
   try {
     const data = await readData();
     data.inventory = data.inventory.filter(m => m.hostname !== req.params.hostname);
     await writeData(data);
     res.json({ message: 'Machine supprimée' });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// ─── Groups ───────────────────────────────────────────────────────────────────
+app.get('/api/groups', authenticate, async (req, res) => {
+  try {
+    const data = await readData();
+    const groupMap = {};
+    for (const machine of data.inventory) {
+      const g = machine.group || 'default';
+      if (!groupMap[g]) groupMap[g] = [];
+      groupMap[g].push(machine.hostname);
+    }
+    const groups = Object.entries(groupMap).map(([name, machines]) => ({ name, machines }));
+    groups.sort((a, b) => a.name.localeCompare(b.name));
+    res.json(groups);
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.post('/api/groups/:group/action', authenticate, requireRole('admin', 'tech'), async (req, res) => {
+  try {
+    const data = await readData();
+    const groupName = req.params.group;
+    const { action, force, params } = req.body;
+    if (!action) return res.status(400).json({ error: 'action requise' });
+    const machines = data.inventory.filter(m => (m.group || 'default') === groupName);
+    if (machines.length === 0) return res.status(404).json({ error: 'Groupe non trouvé ou vide' });
+    const ids = [];
+    for (const machine of machines) {
+      const id = Date.now().toString() + Math.random().toString(36).slice(2, 7);
+      data.actions.push({
+        id, hostname: machine.hostname, action,
+        force: force || false,
+        params: params || {},
+        status: 'pending',
+        created_at: new Date().toISOString(),
+        triggered_by: req.user.username,
+      });
+      ids.push(id);
+    }
+    await writeData(data);
+    res.json({ ids, count: ids.length });
   } catch (err) {
     res.status(500).json({ error: 'Erreur serveur' });
   }

@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, Monitor, Cpu, HardDrive, Wifi,
   Package, RefreshCw, CheckCircle, XCircle, Clock,
-  Shield, ShieldAlert,
+  Shield, ShieldAlert, RotateCcw,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
@@ -100,7 +100,7 @@ export default function MachineDetail() {
           </div>
         </div>
         {['admin', 'tech'].includes(user?.role) && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button
               disabled={actionLoading}
               onClick={() => triggerAction('update_windows')}
@@ -120,6 +120,15 @@ export default function MachineDetail() {
                 Upgrade Win 11
               </button>
             )}
+            <button
+              disabled={actionLoading}
+              onClick={() => triggerAction('restart')}
+              className="bg-orange-700 hover:bg-orange-600 disabled:opacity-60 text-white text-sm px-4 py-2
+                rounded-lg transition flex items-center gap-2"
+            >
+              <RotateCcw size={14} />
+              Redémarrer
+            </button>
           </div>
         )}
       </div>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, RefreshCw, Monitor, Trash2,
-  ChevronRight, Wifi, WifiOff,
+  ChevronRight, Wifi, WifiOff, RotateCcw,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
@@ -58,6 +58,15 @@ export default function Inventory() {
     try {
       await api.triggerAction(hostname, 'update_windows');
       alert(`Action "update_windows" déclenchée pour ${hostname}`);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const triggerReboot = async (hostname) => {
+    try {
+      await api.triggerAction(hostname, 'restart');
+      alert(`Redémarrage planifié pour ${hostname}`);
     } catch (err) {
       alert(err.message);
     }
@@ -181,6 +190,15 @@ export default function Inventory() {
                               transition"
                           >
                             MàJ
+                          </button>
+                        )}
+                        {['admin', 'tech'].includes(user?.role) && (
+                          <button
+                            onClick={() => triggerReboot(m.hostname)}
+                            title="Redémarrer"
+                            className="p-1.5 text-zinc-400 hover:text-orange-400 hover:bg-orange-900/20 rounded transition"
+                          >
+                            <RotateCcw size={14} />
                           </button>
                         )}
                         {user?.role === 'admin' && (

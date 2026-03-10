@@ -8,6 +8,7 @@ import MachineDetail from './pages/MachineDetail';
 import Packages from './pages/Packages';
 import Deployments from './pages/Deployments';
 import Settings from './pages/Settings';
+import Groups from './pages/Groups';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -30,6 +31,7 @@ function AppRoutes() {
       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
       <Route path="/inventory/:hostname" element={<ProtectedRoute><MachineDetail /></ProtectedRoute>} />
+      <Route path="/groups" element={<ProtectedRoute><Groups /></ProtectedRoute>} />
       <Route path="/packages" element={<ProtectedRoute><Packages /></ProtectedRoute>} />
       <Route path="/deployments" element={<ProtectedRoute><Deployments /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

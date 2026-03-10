@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Monitor, Package, Rocket,
-  Settings, LogOut, Menu, X, ShieldCheck,
+  Settings, LogOut, Menu, X, ShieldCheck, Layers,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 const NAV = [
   { to: '/', icon: LayoutDashboard, label: 'Tableau de bord' },
   { to: '/inventory', icon: Monitor, label: 'Inventaire' },
+  { to: '/groups', icon: Layers, label: 'Groupes' },
   { to: '/packages', icon: Package, label: 'Paquets' },
   { to: '/deployments', icon: Rocket, label: 'Déploiements' },
   { to: '/settings', icon: Settings, label: 'Paramètres' },
