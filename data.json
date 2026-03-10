@@ -64,6 +64,54 @@
         "compatible": true
       },
       "last_updated": "2025-04-25T17:01:41.217Z"
+    },
+    {
+      "hostname": "PC-PROD-01",
+      "ip": "192.168.1.10",
+      "domain": "company.local",
+      "os": {
+        "name": "Windows",
+        "version": "10.0.19045"
+      },
+      "software": [],
+      "hardware": {
+        "ram": 8
+      },
+      "compatibility": {},
+      "group": "production",
+      "last_updated": "2026-03-10T16:56:12.120Z"
+    },
+    {
+      "hostname": "PC-PROD-02",
+      "ip": "192.168.1.11",
+      "domain": "company.local",
+      "os": {
+        "name": "Windows",
+        "version": "10.0.19045"
+      },
+      "software": [],
+      "hardware": {
+        "ram": 16
+      },
+      "compatibility": {},
+      "group": "production",
+      "last_updated": "2026-03-10T16:56:12.152Z"
+    },
+    {
+      "hostname": "PC-DEV-01",
+      "ip": "192.168.2.5",
+      "domain": "company.local",
+      "os": {
+        "name": "Windows",
+        "version": "11.0.22621"
+      },
+      "software": [],
+      "hardware": {
+        "ram": 32
+      },
+      "compatibility": {},
+      "group": "testing",
+      "last_updated": "2026-03-10T16:56:12.185Z"
     }
   ],
   "actions": [
@@ -74,6 +122,26 @@
       "force": false,
       "status": "pending",
       "created_at": "2025-04-25T16:41:52.173Z"
+    },
+    {
+      "id": "177316177225451ryx",
+      "hostname": "PC-PROD-01",
+      "action": "restart",
+      "force": false,
+      "params": {},
+      "status": "pending",
+      "created_at": "2026-03-10T16:56:12.254Z",
+      "triggered_by": "admin"
+    },
+    {
+      "id": "1773161772254q3d7y",
+      "hostname": "PC-PROD-02",
+      "action": "restart",
+      "force": false,
+      "params": {},
+      "status": "pending",
+      "created_at": "2026-03-10T16:56:12.254Z",
+      "triggered_by": "admin"
     }
   ],
   "errors": [],

@@ -47,6 +47,12 @@ export const api = {
   getMachines: () => request('GET', '/api/machines'),
   getMachine: (hostname) => request('GET', `/api/machines/${encodeURIComponent(hostname)}`),
   deleteMachine: (hostname) => request('DELETE', `/api/machines/${encodeURIComponent(hostname)}`),
+  updateMachine: (hostname, body) => request('PATCH', `/api/machines/${encodeURIComponent(hostname)}`, body),
+
+  // Groups
+  getGroups: () => request('GET', '/api/groups'),
+  triggerGroupAction: (group, action, force = false, params = {}) =>
+    request('POST', `/api/groups/${encodeURIComponent(group)}/action`, { action, force, params }),
 
   // Actions
   getActions: (params = {}) => {
