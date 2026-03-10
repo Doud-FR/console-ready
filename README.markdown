@@ -7,10 +7,12 @@ Solution open source de gestion de parc informatique et de déploiement logiciel
 - [Architecture](#architecture)
 - [Prérequis](#prérequis)
 - [Installation du serveur](#installation-du-serveur)
+- [Lancer le serveur en tant que service (Linux / systemd)](#lancer-le-serveur-en-tant-que-service-linux--systemd)
 - [Build de la console web](#build-de-la-console-web)
 - [Variables d'environnement](#variables-denvironnement)
 - [Premier démarrage](#premier-démarrage)
-- [Installation de l'agent Windows](#installation-de-lagent-windows)
+- [Installation de l'agent Windows (script automatique)](#installation-de-lagent-windows-script-automatique)
+- [Installation de l'agent Windows (manuel)](#installation-de-lagent-windows-manuel)
 - [Configuration de l'agent](#configuration-de-lagent)
 - [Gestion des groupes](#gestion-des-groupes)
 - [Déploiement d'une application](#déploiement-dune-application)
@@ -125,6 +127,61 @@ Le serveur écoute sur `http://0.0.0.0:3000` (ou sur le port défini par `PORT`)
 
 ---
 
+## Lancer le serveur en tant que service (Linux / systemd)
+
+Pour que le serveur démarre automatiquement au boot et redémarre en cas d'erreur, utilisez le fichier de service systemd fourni (`applideploy.service`).
+
+### 1. Créer un utilisateur dédié
+
+```bash
+sudo useradd --system --no-create-home --shell /usr/sbin/nologin applideploy
+```
+
+### 2. Déployer les fichiers
+
+`/opt/applideploy` sert de répertoire de travail du serveur (stockage de `data.json`, lecture de `.env`). L'utilisateur `applideploy` doit avoir les droits d'écriture sur ce dossier.
+
+```bash
+sudo mkdir -p /opt/applideploy
+sudo cp -r . /opt/applideploy/
+sudo chown -R applideploy:applideploy /opt/applideploy
+# Restreindre les permissions du fichier .env (contient les secrets)
+sudo chmod 600 /opt/applideploy/.env
+```
+
+### 3. Copier le fichier de service
+
+```bash
+sudo cp /opt/applideploy/applideploy.service /etc/systemd/system/
+```
+
+> Le fichier `applideploy.service` pointe par défaut vers `/opt/applideploy`. Si vous utilisez un autre chemin, modifiez les champs `WorkingDirectory` et `EnvironmentFile` dans le fichier.
+
+### 4. Activer et démarrer le service
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable applideploy   # démarrage automatique au boot
+sudo systemctl start applideploy
+```
+
+### 5. Vérifier le statut
+
+```bash
+sudo systemctl status applideploy
+```
+
+### Commandes de gestion
+
+```bash
+sudo systemctl start applideploy    # Démarrer
+sudo systemctl stop applideploy     # Arrêter
+sudo systemctl restart applideploy  # Redémarrer
+sudo journalctl -u applideploy -f   # Suivre les journaux en temps réel
+```
+
+---
+
 ## Variables d'environnement
 
 | Variable         | Défaut                                  | Description |
@@ -153,7 +210,58 @@ Ouvrir la console web dans un navigateur : `http://<adresse-serveur>:3000`
 
 ---
 
-## Installation de l'agent Windows
+## Installation de l'agent Windows (script automatique)
+
+Le script PowerShell `install-agent.ps1` installe automatiquement l'agent et toutes ses dépendances en une seule commande.
+
+### Prérequis
+
+- Windows 10 / 11 (64 bit)
+- PowerShell 5.1+ (inclus dans Windows 10/11)
+- Session PowerShell **en tant qu'administrateur**
+
+### Utilisation
+
+Copier `agent.py` et `install-agent.ps1` sur le poste client (dans le même dossier), puis ouvrir PowerShell **en tant qu'administrateur** et exécuter :
+
+```powershell
+Set-ExecutionPolicy Bypass -Scope Process -Force
+.\install-agent.ps1 -ServerUrl "http://<adresse-serveur>:3000" -AgentSecret "<valeur-de-AGENT_SECRET>"
+```
+
+Le script :
+1. Vérifie les droits administrateur
+2. Détecte Python 3.10+ (et propose l'installation via `winget` si absent)
+3. Installe les dépendances Python (`requests`, `pywin32`, `wmi`, `psutil`)
+4. Copie `agent.py` dans `C:\Program Files\AppliDeployAgent\`
+5. Crée le fichier de configuration dans `%ProgramData%\AppliDeployAgent\agent.conf`
+6. Installe et démarre le service Windows **AppliDeployAgent** (démarrage automatique)
+
+### Paramètres disponibles
+
+| Paramètre | Obligatoire | Défaut | Description |
+|-----------|-------------|--------|-------------|
+| `-ServerUrl` | ✅ | — | URL du serveur AppliDeploy |
+| `-AgentSecret` | ✅ | — | Valeur de `AGENT_SECRET` côté serveur |
+| `-PollInterval` | ❌ | `300` | Intervalle d'interrogation en secondes |
+| `-InstallDir` | ❌ | `C:\Program Files\AppliDeployAgent` | Dossier d'installation |
+| `-HostnameOverride` | ❌ | *(auto)* | Forcer un nom de machine spécifique |
+
+### Exemple avec tous les paramètres
+
+```powershell
+.\install-agent.ps1 `
+    -ServerUrl "https://applideploy.entreprise.fr" `
+    -AgentSecret "MonSecretTresLong1234" `
+    -PollInterval 120 `
+    -HostnameOverride "PC-COMPTA-01"
+```
+
+---
+
+## Installation de l'agent Windows (manuel)
+
+> ℹ️ Utilisez cette méthode uniquement si vous ne pouvez pas utiliser le script automatique ci-dessus.
 
 ### 1. Prérequis Python
 
