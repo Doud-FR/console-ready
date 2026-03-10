@@ -30,3 +30,4 @@ pids
 *.pid
 *.seed
 *.pid.lock
+public/vite.svg
