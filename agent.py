@@ -248,7 +248,14 @@ def execute_action(client, action):
 
     try:
         if action_type == 'update_windows':
-            _run_powershell('Install-WindowsUpdate -AcceptAll -AutoReboot -IgnoreReboot')
+            _run_powershell(
+                'if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) { '
+                'try { Install-Module -Name PSWindowsUpdate -Force -Confirm:$false -Scope AllUsers } '
+                'catch { Install-Module -Name PSWindowsUpdate -Force -Confirm:$false -Scope CurrentUser } '
+                '} '
+                'Import-Module PSWindowsUpdate; '
+                'Install-WindowsUpdate -AcceptAll -AutoReboot -IgnoreReboot'
+            )
 
         elif action_type == 'upgrade_windows11':
             inventory = collect_inventory(load_config())
