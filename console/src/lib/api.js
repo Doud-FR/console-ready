@@ -15,7 +15,7 @@ async function request(method, url, body) {
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
-  if (res.status === 401) {
+  if (res.status === 401 && getToken()) {
     localStorage.removeItem('token');
     // Dispatch a custom event so the AuthContext can handle the redirect
     // without a hard page reload when possible, but fall back to reload
