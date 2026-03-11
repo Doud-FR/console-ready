@@ -28,6 +28,7 @@ from datetime import datetime
 from pathlib import Path
 
 import requests
+from requests.adapters import HTTPAdapter
 
 # ─── Windows-only imports ────────────────────────────────────────────────────
 try:
@@ -92,6 +93,9 @@ def load_config():
 
 # ─── HTTP client ─────────────────────────────────────────────────────────────
 class ServerClient:
+    # (connect_timeout, read_timeout) in seconds
+    TIMEOUT = (10, 30)
+
     def __init__(self, server_url, agent_secret):
         self.base = server_url.rstrip('/')
         self.session = requests.Session()
@@ -99,16 +103,19 @@ class ServerClient:
             'X-Agent-Secret': agent_secret,
             'Content-Type': 'application/json',
         })
-        self.session.timeout = 30
+        # Disable automatic retries to prevent "Max retries exceeded" errors
+        adapter = HTTPAdapter(max_retries=0)
+        self.session.mount('http://', adapter)
+        self.session.mount('https://', adapter)
 
     def post(self, path, data):
-        return self.session.post(f'{self.base}{path}', json=data)
+        return self.session.post(f'{self.base}{path}', json=data, timeout=self.TIMEOUT)
 
     def get(self, path):
-        return self.session.get(f'{self.base}{path}')
+        return self.session.get(f'{self.base}{path}', timeout=self.TIMEOUT)
 
     def put(self, path, data):
-        return self.session.put(f'{self.base}{path}', json=data)
+        return self.session.put(f'{self.base}{path}', json=data, timeout=self.TIMEOUT)
 
 
 # ─── Inventory collection ────────────────────────────────────────────────────
