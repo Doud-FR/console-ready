@@ -53,7 +53,7 @@ Solution open source de gestion de parc informatique et de déploiement logiciel
 
 | Composant | Version minimale |
 |-----------|-----------------|
-| Node.js   | 18.x LTS        |
+| Node.js   | 20.x LTS        |
 | npm       | 9               |
 | OS        | Linux, macOS ou Windows Server |
 
