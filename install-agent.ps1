@@ -353,7 +353,7 @@ $configContent = @"
 "@
 
 $configPath = Join-Path $dataDir "agent.conf"
-Set-Content -Path $configPath -Value $configContent -Encoding UTF8
+[System.IO.File]::WriteAllText($configPath, $configContent, [System.Text.UTF8Encoding]::new($false))
 Write-Success "Configuration écrite dans $configPath."
 
 # Restrict permissions on agent.conf to SYSTEM only

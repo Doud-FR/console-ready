@@ -83,7 +83,7 @@ def load_config():
     cfg = dict(DEFAULT_CONFIG)
     if CONFIG_FILE.exists():
         try:
-            with open(CONFIG_FILE, encoding='utf-8') as f:
+            with open(CONFIG_FILE, encoding='utf-8-sig') as f:
                 cfg.update(json.load(f))
         except Exception as exc:
             log.warning('Impossible de lire la config : %s', exc)
