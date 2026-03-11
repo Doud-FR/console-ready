@@ -5,7 +5,8 @@
 .DESCRIPTION
     Ce script automatise l'installation complète de l'agent AppliDeploy :
       - Vérifie les droits administrateur
-      - Vérifie la présence de Python 3.10+ (et propose l'installation via winget)
+      - Vérifie la présence de Python 3.10+ (et propose l'installation via winget ou téléchargement direct)
+      - Recherche Python dans les emplacements d'installation courants si absent du PATH
       - Installe les dépendances Python requises (requests, pywin32, wmi, psutil)
       - Crée le dossier d'installation et copie l'agent
       - Crée le fichier de configuration
@@ -83,6 +84,52 @@ function Write-Fail {
     Write-Host "   ❌  $Message" -ForegroundColor Red
 }
 
+# Recherche Python dans les emplacements d'installation courants (hors PATH)
+function Find-PythonInCommonPaths {
+    $candidates = @()
+
+    # Emplacements système et utilisateur courants
+    $baseDirs = @(
+        "C:\Python3*",
+        "C:\Program Files\Python3*",
+        "C:\Program Files (x86)\Python3*",
+        "$env:LOCALAPPDATA\Programs\Python\Python3*",
+        "$env:LOCALAPPDATA\Programs\Python\Python*"
+    )
+
+    foreach ($pattern in $baseDirs) {
+        $dirs = Get-Item -Path $pattern -ErrorAction SilentlyContinue
+        foreach ($dir in $dirs) {
+            $exe = Join-Path $dir.FullName "python.exe"
+            if (Test-Path $exe) {
+                $candidates += $exe
+            }
+        }
+    }
+
+    # Launcher Python (py.exe) dans le répertoire Windows
+    $pyLauncher = "$env:SystemRoot\py.exe"
+    if (Test-Path $pyLauncher) {
+        $candidates += $pyLauncher
+    }
+
+    foreach ($exe in $candidates) {
+        try {
+            $ver = & $exe --version 2>&1
+            if ($ver -match "Python (\d+)\.(\d+)") {
+                $major = [int]$Matches[1]
+                $minor = [int]$Matches[2]
+                if ($major -gt 3 -or ($major -eq 3 -and $minor -ge 10)) {
+                    return $exe
+                }
+            }
+        } catch {
+            # not executable or incompatible version
+        }
+    }
+    return $null
+}
+
 # ─── 0. Droits administrateur ─────────────────────────────────────────────────
 
 Write-Step "Vérification des droits administrateur"
@@ -116,27 +163,130 @@ foreach ($candidate in @("python", "python3", "py")) {
     }
 }
 
+# Si Python n'est pas dans le PATH, rechercher dans les emplacements courants
+if (-not $pythonCmd) {
+    Write-Warn "Python 3.10+ absent du PATH. Recherche dans les emplacements courants..."
+    $foundPath = Find-PythonInCommonPaths
+    if ($foundPath) {
+        $pythonCmd = $foundPath
+        # Ajouter le dossier de Python au PATH de la session courante
+        $pythonDir = Split-Path $foundPath -Parent
+        $env:Path = "$pythonDir;$env:Path"
+        Write-Success "Python détecté hors PATH : $foundPath"
+        Write-Warn "Python n'est pas dans les variables d'environnement système. Pour un fonctionnement optimal,"
+        Write-Warn "ajoutez '$pythonDir' à la variable PATH système (ou réinstallez Python en cochant 'Add Python to PATH')."
+    }
+}
+
 if (-not $pythonCmd) {
     Write-Warn "Python 3.10+ introuvable."
-    $install = Read-Host "   Installer Python via winget ? [O/n]"
-    if ($install -ne "n" -and $install -ne "N") {
-        Write-Step "Installation de Python via winget"
-        try {
-            winget install --id Python.Python.3.11 --source winget --silent --accept-package-agreements --accept-source-agreements
-            # Refresh PATH
-            $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
-                        [System.Environment]::GetEnvironmentVariable("Path", "User")
-            $pythonCmd = "python"
-            Write-Success "Python installé avec succès."
-        } catch {
-            Write-Fail "Impossible d'installer Python automatiquement."
-            Write-Host "   Installez manuellement Python 3.10+ depuis https://www.python.org/downloads/" -ForegroundColor Red
-            Write-Host "   Cochez 'Add Python to PATH' lors de l'installation, puis relancez ce script." -ForegroundColor Red
+
+    # Vérifier si winget est disponible
+    $wingetAvailable = $null -ne (Get-Command winget -ErrorAction SilentlyContinue)
+
+    if ($wingetAvailable) {
+        $install = Read-Host "   Installer Python via winget ? [O/n]"
+        if ($install -ne "n" -and $install -ne "N") {
+            Write-Step "Installation de Python via winget"
+            try {
+                winget install --id Python.Python.3.11 --source winget --silent --accept-package-agreements --accept-source-agreements
+                # Refresh PATH
+                $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
+                            [System.Environment]::GetEnvironmentVariable("Path", "User")
+                # Vérifier à nouveau dans les emplacements courants si toujours absent du PATH
+                $pythonCmd = "python"
+                try {
+                    $verCheck = & python --version 2>&1
+                    if ($verCheck -notmatch "Python 3") {
+                        $foundPath = Find-PythonInCommonPaths
+                        if ($foundPath) {
+                            $pythonCmd = $foundPath
+                            $pythonDir = Split-Path $foundPath -Parent
+                            $env:Path = "$pythonDir;$env:Path"
+                        }
+                    }
+                } catch {
+                    $foundPath = Find-PythonInCommonPaths
+                    if ($foundPath) {
+                        $pythonCmd = $foundPath
+                        $pythonDir = Split-Path $foundPath -Parent
+                        $env:Path = "$pythonDir;$env:Path"
+                    }
+                }
+                Write-Success "Python installé avec succès."
+            } catch {
+                Write-Fail "Impossible d'installer Python automatiquement."
+                Write-Host "   Installez manuellement Python 3.10+ depuis https://www.python.org/downloads/" -ForegroundColor Red
+                Write-Host "   Cochez 'Add Python to PATH' lors de l'installation, puis relancez ce script." -ForegroundColor Red
+                exit 1
+            }
+        } else {
+            Write-Fail "Python est requis. Installation annulée."
             exit 1
         }
     } else {
-        Write-Fail "Python est requis. Installation annulée."
-        exit 1
+        # winget non disponible : téléchargement direct de l'installeur Python
+        Write-Warn "winget n'est pas disponible sur ce système."
+        $install = Read-Host "   Télécharger et installer Python 3.11 depuis python.org ? [O/n]"
+        if ($install -ne "n" -and $install -ne "N") {
+            Write-Step "Téléchargement de l'installeur Python 3.11 depuis python.org"
+            $pythonInstallerUrl = "https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe"
+            $installerPath = Join-Path $env:TEMP "python-3.11.9-amd64.exe"
+            try {
+                Write-Host "   Téléchargement en cours..." -ForegroundColor Cyan
+                [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+                Invoke-WebRequest -Uri $pythonInstallerUrl -OutFile $installerPath -UseBasicParsing
+                Write-Success "Installeur téléchargé dans $installerPath."
+
+                Write-Step "Installation silencieuse de Python 3.11 (pour tous les utilisateurs, avec PATH)"
+                $proc = Start-Process -FilePath $installerPath `
+                    -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1 Include_test=0" `
+                    -Wait -PassThru
+                if ($proc.ExitCode -ne 0) {
+                    throw "L'installeur a retourné le code $($proc.ExitCode)"
+                }
+                Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
+
+                # Rafraîchir le PATH de la session courante
+                $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
+                            [System.Environment]::GetEnvironmentVariable("Path", "User")
+
+                # Vérifier si python est maintenant accessible
+                $pythonCmd = "python"
+                try {
+                    $verCheck = & python --version 2>&1
+                    if ($verCheck -notmatch "Python 3") {
+                        $foundPath = Find-PythonInCommonPaths
+                        if ($foundPath) {
+                            $pythonCmd = $foundPath
+                            $pythonDir = Split-Path $foundPath -Parent
+                            $env:Path = "$pythonDir;$env:Path"
+                        } else {
+                            throw "Python introuvable après installation."
+                        }
+                    }
+                } catch {
+                    $foundPath = Find-PythonInCommonPaths
+                    if ($foundPath) {
+                        $pythonCmd = $foundPath
+                        $pythonDir = Split-Path $foundPath -Parent
+                        $env:Path = "$pythonDir;$env:Path"
+                    } else {
+                        throw "Python introuvable après installation."
+                    }
+                }
+                Write-Success "Python installé avec succès."
+            } catch {
+                Write-Fail "Impossible d'installer Python automatiquement : $_"
+                Write-Host "   Téléchargez et installez manuellement Python 3.10+ depuis https://www.python.org/downloads/" -ForegroundColor Red
+                Write-Host "   Cochez 'Add Python to PATH' lors de l'installation, puis relancez ce script." -ForegroundColor Red
+                if (Test-Path $installerPath) { Remove-Item $installerPath -Force -ErrorAction SilentlyContinue }
+                exit 1
+            }
+        } else {
+            Write-Fail "Python est requis. Installation annulée."
+            exit 1
+        }
     }
 }
 
